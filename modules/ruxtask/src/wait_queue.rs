@@ -112,46 +112,6 @@ impl<Meta> WaitQueueWithMetadata<Meta> {
         timeout
     }
 
-    /// Blocks the current task and put it into the wait queue, until the given
-    /// `condition` becomes true, or the given duration has elapsed.
-    ///
-    /// Note that even other tasks notify this task, it will not wake up until
-    /// the above conditions are met.
-    #[cfg(feature = "irq")]
-    pub fn wait_timeout_until_meta<F>(
-        &self,
-        dur: core::time::Duration,
-        mut condition: F,
-        meta: Meta,
-    ) -> bool
-    where
-        F: FnMut() -> bool,
-    {
-        let curr = crate::current();
-        let deadline = ruxhal::time::current_time() + dur;
-        debug!(
-            "task wait_timeout: {}, deadline={:?}",
-            curr.id_name(),
-            deadline
-        );
-        crate::timers::set_alarm_wakeup(deadline, curr.clone());
-
-        let mut timeout = true;
-        while ruxhal::time::current_time() < deadline {
-            let mut rq = RUN_QUEUE.lock();
-            if condition() {
-                timeout = false;
-                break;
-            }
-            rq.block_current(|task| {
-                task.set_in_wait_queue(true);
-                self.queue.lock().push_back((task, meta));
-            });
-        }
-        self.cancel_events(curr);
-        timeout
-    }
-
     /// Wakes up one task in the wait queue, usually the first one.
     ///
     /// If `resched` is true, the current task will be preempted when the
@@ -305,6 +265,46 @@ impl<Meta: Clone> WaitQueueWithMetadata<Meta> {
         }
         self.cancel_events(crate::current());
     }
+
+    /// Blocks the current task and put it into the wait queue, until the given
+    /// `condition` becomes true, or the given duration has elapsed.
+    ///
+    /// Note that even other tasks notify this task, it will not wake up until
+    /// the above conditions are met.
+    #[cfg(feature = "irq")]
+    pub fn wait_timeout_until_meta<F>(
+        &self,
+        dur: core::time::Duration,
+        mut condition: F,
+        meta: Meta,
+    ) -> bool
+    where
+        F: FnMut() -> bool,
+    {
+        let curr = crate::current();
+        let deadline = ruxhal::time::current_time() + dur;
+        debug!(
+            "task wait_timeout: {}, deadline={:?}",
+            curr.id_name(),
+            deadline
+        );
+        crate::timers::set_alarm_wakeup(deadline, curr.clone());
+
+        let mut timeout = true;
+        while ruxhal::time::current_time() < deadline {
+            let mut rq = RUN_QUEUE.lock();
+            if condition() {
+                timeout = false;
+                break;
+            }
+            rq.block_current(|task| {
+                task.set_in_wait_queue(true);
+                self.queue.lock().push_back((task, meta.clone()));
+            });
+        }
+        self.cancel_events(curr);
+        timeout
+    }
 }
 
 impl<Meta: Default> WaitQueueWithMetadata<Meta> {
@@ -325,19 +325,6 @@ impl<Meta: Default> WaitQueueWithMetadata<Meta> {
     /// notify it, or the given deadling has elapsed.
     pub fn wait_timeout_absolutely(&self, deadline: core::time::Duration) -> bool {
         self.wait_timeout_absolutely_meta(deadline, Default::default())
-    }
-
-    /// Blocks the current task and put it into the wait queue, until the given
-    /// `condition` becomes true, or the given duration has elapsed.
-    ///
-    /// Note that even other tasks notify this task, it will not wake up until
-    /// the above conditions are met.
-    #[cfg(feature = "irq")]
-    pub fn wait_timeout_until<F>(&self, dur: core::time::Duration, condition: F) -> bool
-    where
-        F: FnMut() -> bool,
-    {
-        self.wait_timeout_until_meta(dur, condition, Default::default())
     }
 
     /// Queue a given task with "default" metadata.
@@ -361,6 +348,19 @@ impl<Meta: Default + Clone> WaitQueueWithMetadata<Meta> {
         F: FnMut() -> bool,
     {
         self.wait_until_meta(condition, Default::default())
+    }
+
+    /// Blocks the current task and put it into the wait queue, until the given
+    /// `condition` becomes true, or the given duration has elapsed.
+    ///
+    /// Note that even other tasks notify this task, it will not wake up until
+    /// the above conditions are met.
+    #[cfg(feature = "irq")]
+    pub fn wait_timeout_until<F>(&self, dur: core::time::Duration, condition: F) -> bool
+    where
+        F: FnMut() -> bool,
+    {
+        self.wait_timeout_until_meta(dur, condition, Default::default())
     }
 }
 
