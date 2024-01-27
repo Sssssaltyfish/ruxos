@@ -154,6 +154,7 @@ impl DirBuilder {
         }
     }
 
+    /// Creates a new, empty directory at the provided path, recursively creates all parents.
     pub fn create_dir_all<P: AsRef<str>>(&self, path: P) -> Result<()> {
         api::ax_create_dir_all(path.as_ref())
     }
