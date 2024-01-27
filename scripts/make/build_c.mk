@@ -55,7 +55,7 @@ $(obj_dir):
 
 $(last_cflags): _check_need_rebuild
 
-$(ulib_obj): $(obj_dir)/%.o: $(src_dir)/%.c $(last_cflags)
+$(ulib_obj): $(obj_dir)/%.o: $(src_dir)/%.c $(last_cflags) $(ulib_hdr)
 	$(call run_cmd,$(CC),$(CFLAGS) -c -o $@ $<)
 
 $(c_lib): $(obj_dir) _check_need_rebuild $(ulib_obj)
@@ -66,6 +66,8 @@ app-objs := main.o
 -include $(APP)/axbuild.mk  # override `app-objs`
 
 app-objs := $(addprefix $(APP)/,$(app-objs))
+
+$(ulib_hdr): _cargo_build
 
 $(APP)/%.o: $(APP)/%.c $(ulib_hdr)
 	$(call run_cmd,$(CC),$(CFLAGS) $(APP_CFLAGS) -c -o $@ $<)
