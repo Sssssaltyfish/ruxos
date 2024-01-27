@@ -74,7 +74,7 @@ $(rust_lib): _cargo_build
 
 $(OUT_ELF): $(c_lib) $(rust_lib) $(libgcc) $(app-objs)
 	@printf "    $(CYAN_C)Linking$(END_C) $(OUT_ELF)\n"
-	$(call run_cmd,$(LD),$(LDFLAGS) $^ -o $@)
+	$(call run_cmd,$(LD),$(LDFLAGS) $(c_lib) $(rust_lib) $(libgcc) $(app-objs) -o $@)
 
 $(APP)/axbuild.mk: ;
 
