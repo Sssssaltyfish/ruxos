@@ -8,6 +8,7 @@
  */
 
 mod bufreader;
+#[cfg(feature = "alloc")]
 mod bufwriter;
 
 const DEFAULT_BUF_SIZE: usize = 1024;
@@ -47,8 +48,10 @@ use super::Error;
 /// };
 /// ```
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct IntoInnerError<W>(W, Error);
 
+#[allow(dead_code)]
 impl<W> IntoInnerError<W> {
     /// Construct a new IntoInnerError
     fn new(writer: W, error: Error) -> Self {

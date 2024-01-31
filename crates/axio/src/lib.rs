@@ -294,6 +294,7 @@ pub struct PollState {
 ///
 /// [`lines`]: BufRead::lines
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Lines<B> {
     buf: B,
 }
