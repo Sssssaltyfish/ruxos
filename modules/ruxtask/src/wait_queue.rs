@@ -83,6 +83,25 @@ impl<Meta> WaitQueueWithMetadata<Meta> {
         self.cancel_events(crate::current());
     }
 
+    /// If `condition` returns [`Ok`], blocks the current task and put it into the wait queue,
+    /// until other task notifies it.
+    pub fn wait_meta_if<F, R>(&self, meta: Meta, mut condition: F) -> Result<(), R>
+    where
+        F: FnMut() -> Result<(), R>,
+    {
+        let mut wq = self.queue.lock();
+        condition()?;
+
+        RUN_QUEUE.lock().block_current(|task| {
+            task.set_in_wait_queue(true);
+            wq.push_back((task, meta));
+            drop(wq);
+        });
+        self.cancel_events(crate::current());
+
+        Ok(())
+    }
+
     /// Blocks the current task and put it into the wait queue, until other tasks
     /// notify it, or the given duration has elapsed.
     #[cfg(feature = "irq")]
@@ -91,8 +110,24 @@ impl<Meta> WaitQueueWithMetadata<Meta> {
         self.wait_timeout_absolutely_meta(deadline, meta)
     }
 
+    /// If `condition` returns [`Ok`], blocks the current task and put it into the wait queue,
+    /// until other tasks notify it, or the given duration has elapsed.
+    #[cfg(feature = "irq")]
+    pub fn wait_timeout_meta_if<F, R>(
+        &self,
+        dur: core::time::Duration,
+        meta: Meta,
+        condition: F,
+    ) -> Result<bool, R>
+    where
+        F: FnMut() -> Result<(), R>,
+    {
+        let deadline = dur + ruxhal::time::current_time();
+        self.wait_timeout_absolutely_meta_if(deadline, meta, condition)
+    }
+
     /// Blocks the current task and put it into the wait queue, until other tasks
-    /// notify it, or the given deadling has elapsed.
+    /// notify it, or the given deadline has elapsed.
     pub fn wait_timeout_absolutely_meta(&self, deadline: core::time::Duration, meta: Meta) -> bool {
         let curr = crate::current();
         debug!(
@@ -110,6 +145,39 @@ impl<Meta> WaitQueueWithMetadata<Meta> {
         let timeout = curr.in_wait_queue(); // still in the wait queue, must have timed out
         self.cancel_events(curr);
         timeout
+    }
+
+    /// If `condition` returns [`Ok`], blocks the current task and put it into the wait queue,
+    /// until other tasks notify it, or the given deadline has elapsed.
+    pub fn wait_timeout_absolutely_meta_if<F, R>(
+        &self,
+        deadline: core::time::Duration,
+        meta: Meta,
+        mut condition: F,
+    ) -> Result<bool, R>
+    where
+        F: FnMut() -> Result<(), R>,
+    {
+        let curr = crate::current();
+        let mut wq = self.queue.lock();
+        condition()?;
+
+        debug!(
+            "task wait_timeout: {} deadline={:?}",
+            curr.id_name(),
+            deadline
+        );
+        #[cfg(feature = "irq")]
+        crate::timers::set_alarm_wakeup(deadline, curr.clone());
+
+        RUN_QUEUE.lock().block_current(|task| {
+            task.set_in_wait_queue(true);
+            wq.push_back((task, meta));
+            drop(wq);
+        });
+        let timeout = curr.in_wait_queue(); // still in the wait queue, must have timed out
+        self.cancel_events(curr);
+        Ok(timeout)
     }
 
     /// Wakes up one task in the wait queue, usually the first one.
@@ -159,10 +227,12 @@ impl<Meta> WaitQueueWithMetadata<Meta> {
     }
 
     /// Wake up all corresponding tasks that `filter` returns true.
+    /// 
+    /// Returns number of tasks awaken.
     ///
     /// If `resched` is true, the current task will be preempted when the
     /// preemption is enabled.
-    pub fn notify_task_if<F>(&self, resched: bool, mut filter: F) -> bool
+    pub fn notify_task_if<F>(&self, resched: bool, mut filter: F) -> usize
     where
         F: FnMut(&AxTaskRef, &Meta) -> bool,
     {
@@ -180,7 +250,7 @@ impl<Meta> WaitQueueWithMetadata<Meta> {
             }
         });
 
-        len_before != wq.len()
+        len_before - wq.len()
     }
 
     pub(crate) fn notify_one_locked(&self, resched: bool, rq: &mut AxRunQueue) -> bool {
