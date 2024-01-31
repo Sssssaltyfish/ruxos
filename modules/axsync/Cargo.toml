@@ -14,10 +14,21 @@ multitask = ["ruxtask/multitask"]
 default = []
 
 [dependencies]
-spinlock = { path = "../../crates/spinlock" }
+log = "0.4"
+bitflags = "2.2"
+ahash = { version = "0.8.7", default-features = false, features = [
+    "compile-time-rng",
+] }
+
 ruxtask = { path = "../ruxtask" }
+ruxconfig = { path = "../ruxconfig" }
+axerrno = { path = "../../crates/axerrno" }
+
+spinlock = { path = "../../crates/spinlock" }
+lazy_init = { path = "../../crates/lazy_init" }
 
 [dev-dependencies]
 rand = "0.8"
 axsync = { path = ".", features = ["multitask"] }
 ruxtask = { path = "../ruxtask", features = ["test"] }
+memory_addr = { path = "../../crates/memory_addr" }

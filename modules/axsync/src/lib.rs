@@ -23,10 +23,16 @@
 #![cfg_attr(not(test), no_std)]
 #![feature(doc_cfg)]
 
+#[cfg(feature = "multitask")]
+extern crate alloc;
+
 pub use spinlock as spin;
 
 #[cfg(feature = "multitask")]
 mod mutex;
+
+#[cfg(feature = "multitask")]
+pub mod futex;
 
 #[cfg(feature = "multitask")]
 #[doc(cfg(feature = "multitask"))]

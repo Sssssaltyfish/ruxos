@@ -173,7 +173,7 @@ pub fn syscall(syscall_id: SyscallId, args: [usize; 6]) -> isize {
             #[cfg(feature = "multitask")]
             SyscallId::FUTEX => ruxos_posix_api::sys_futex(
                 args[0],
-                args[1] as c_int,
+                args[1] as _,
                 args[2] as c_int,
                 args[3],
                 args[4] as c_int,
