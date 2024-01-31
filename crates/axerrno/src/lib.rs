@@ -138,6 +138,11 @@ macro_rules! ax_err_type {
         $crate::__priv::warn!("[AxError::{:?}] {}", $err, $msg);
         $err
     }};
+    ($err: ident, $fmt: literal, $($arg: tt)+) => {{
+        use $crate::AxError::*;
+        $crate::__priv::warn!(concat!("[AxError::{:?}] ", $fmt), $err, $($arg)+);
+        $err
+    }};
 }
 
 /// Ensure a condition is true. If it is not, return from the function
@@ -192,6 +197,9 @@ macro_rules! ax_err {
     };
     ($err: ident, $msg: expr) => {
         Err($crate::ax_err_type!($err, $msg))
+    };
+    ($err: ident, $fmt: literal, $($arg: tt)+) => {
+        Err($crate::ax_err_type!($err, $fmt, $($arg)+))
     };
 }
 
