@@ -198,6 +198,9 @@ debug: build
 	  -ex 'continue' \
 	  -ex 'disp /16i $$pc'
 
+debug_no_attach: build
+	$(call run_qemu_debug)
+
 clippy:
 ifeq ($(origin ARCH), command line)
 	$(call cargo_clippy,--target $(TARGET))
