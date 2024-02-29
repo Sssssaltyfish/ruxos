@@ -115,16 +115,21 @@ pub fn futex_wait_bitset(
     // Lock the queue before checking futex value.
     match timeout {
         Some(timeout) => {
+            #[cfg(feature = "irq")]
             let wait_timeout = if bitset == FUTEX_BITSET_MATCH_ANY {
                 FutexBucket::wait_timeout_absolutely_meta_if
             } else {
                 FutexBucket::wait_timeout_meta_if
             };
+            #[cfg(not(feature = "irq"))]
+            let wait_timeout = FutexBucket::wait_timeout_absolutely_meta_if;
             let _is_timeout = wait_timeout(futex_bucket, timeout, futex_key, condition)?;
             Ok(())
         }
         None => futex_bucket.wait_meta_if(futex_key, condition),
     }
+    // ruxtask::yield_now();
+    // Ok(())
 }
 
 pub fn futex_wake(futex_addr: *const i32, max_count: usize) -> AxResult<usize> {
@@ -139,7 +144,7 @@ pub fn futex_wake_bitset(futex_addr: *const i32, max_count: usize, bitset: u32) 
         .map(|b| {
             b.inner()
                 .iter()
-                .map(|t| (t.0, alloc::format!("{:#x}", t.1.addr())))
+                .map(|t| (t.0.clone(), alloc::format!("{:#x}", t.1.addr())))
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();

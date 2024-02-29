@@ -227,7 +227,7 @@ impl<Meta> WaitQueueWithMetadata<Meta> {
     }
 
     /// Wake up all corresponding tasks that `filter` returns true.
-    /// 
+    ///
     /// Returns number of tasks awaken.
     ///
     /// If `resched` is true, the current task will be preempted when the

@@ -1,4 +1,5 @@
 use core::{
+    fmt::Debug,
     hash::{Hash, Hasher},
     sync::atomic::{self, AtomicI32},
 };
@@ -10,10 +11,19 @@ use ruxtask::WaitQueueWithMetadata;
 
 use super::BUCKET_MASK;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub(crate) struct FutexKey {
     key: usize,
     bitset: u32,
+}
+
+impl Debug for FutexKey {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("FutexKey")
+            .field("key", &format_args!("{:#x}", self.key))
+            .field("bitset", &format_args!("{:#x}", self.bitset))
+            .finish()
+    }
 }
 
 pub(crate) type FutexBucket = WaitQueueWithMetadata<FutexKey>;
@@ -77,10 +87,3 @@ impl FutexVec {
         (idx, &self.buckets[idx])
     }
 }
-
-
-#[no_mangle]
-pub unsafe extern "C" fn loggit(s: *const core::ffi::c_char) {
-    log::debug!("loggit: {}", core::ffi::CStr::from_ptr(s).to_str().unwrap());
-}
-
