@@ -13,9 +13,9 @@ dependencies = [
 
 [[package]]
 name = "ahash"
-version = "0.8.7"
+version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77c3a9648d43b9cd48db467b3f87fdd6e146bcc88ab0180006cef2179fe11d01"
+checksum = "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011"
 dependencies = [
  "cfg-if",
  "const-random",
@@ -228,10 +228,8 @@ dependencies = [
 name = "axsync"
 version = "0.1.0"
 dependencies = [
- "ahash",
  "axerrno",
  "axsync",
- "bitflags 2.4.0",
  "lazy_init",
  "log",
  "memory_addr",
@@ -467,9 +465,9 @@ checksum = "0b396d1f76d455557e1218ec8066ae14bba60b4b36ecd55577ba979f5db7ecaa"
 
 [[package]]
 name = "const-random"
-version = "0.1.17"
+version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5aaf16c9c2c612020bcfd042e170f6e32de9b9d75adb5277cdbbd2e2c8c8299a"
+checksum = "87e00182fe74b066627d63b85fd550ac2998d4b0bd86bfed477a0ae4c7c71359"
 dependencies = [
  "const-random-macro",
 ]
@@ -1646,6 +1644,7 @@ dependencies = [
 name = "ruxos_posix_api"
 version = "0.1.0"
 dependencies = [
+ "ahash",
  "axalloc",
  "axerrno",
  "axio",
@@ -1653,7 +1652,9 @@ dependencies = [
  "axnet",
  "axsync",
  "bindgen",
+ "bitflags 2.4.0",
  "flatten_objects",
+ "lazy_init",
  "lazy_static",
  "memory_addr",
  "ruxconfig",

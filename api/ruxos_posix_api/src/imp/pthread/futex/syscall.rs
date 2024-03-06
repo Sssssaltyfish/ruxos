@@ -1,10 +1,10 @@
 use core::time::Duration;
 
 use axerrno::{ax_err, ax_err_type, AxResult};
+use axlog::debug;
 use bitflags::bitflags;
-use log::debug;
 
-use crate::futex::{
+use super::{
     types::{FutexBucket, FutexKey},
     FUTEX_BUCKETS,
 };
@@ -100,6 +100,7 @@ pub fn futex_wait_bitset(
     let condition = || {
         // Check the futex value
         let actual_val = futex_key.load_val();
+        trace!("futex_wait_bitset actual_val: {}", actual_val);
         if actual_val != futex_val {
             return ax_err!(
                 WouldBlock,
@@ -128,8 +129,6 @@ pub fn futex_wait_bitset(
         }
         None => futex_bucket.wait_meta_if(futex_key, condition),
     }
-    // ruxtask::yield_now();
-    // Ok(())
 }
 
 pub fn futex_wake(futex_addr: *const i32, max_count: usize) -> AxResult<usize> {
@@ -137,22 +136,10 @@ pub fn futex_wake(futex_addr: *const i32, max_count: usize) -> AxResult<usize> {
 }
 
 pub fn futex_wake_bitset(futex_addr: *const i32, max_count: usize, bitset: u32) -> AxResult<usize> {
-    use alloc::vec::Vec;
-    let all_tasks = FUTEX_BUCKETS
-        .buckets
-        .iter()
-        .map(|b| {
-            b.inner()
-                .iter()
-                .map(|t| (t.0.clone(), alloc::format!("{:#x}", t.1.addr())))
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
     debug!(
-        "futex_wake_bitset addr: {:#x}, max_count: {}, bitset: {:#x}, all_futex_tasks: {:?}",
-        futex_addr as usize, max_count, bitset, all_tasks
+        "futex_wake_bitset addr: {:#x}, max_count: {}, bitset: {:#x}",
+        futex_addr as usize, max_count, bitset
     );
-    drop(all_tasks);
 
     let futex_key = FutexKey::new(futex_addr, bitset);
     let (_, futex_bucket) = FUTEX_BUCKETS.get_bucket(futex_key);
@@ -161,7 +148,7 @@ pub fn futex_wake_bitset(futex_addr: *const i32, max_count: usize, bitset: u32) 
 
     // Wake up the tasks in the bucket
     let task_count = futex_bucket.notify_task_if(false, |task, &key| {
-        debug!(
+        trace!(
             "futex wake: count: {}, key: {:?}, futex_key: {:?}, bitset: {}, is_notified: {}, task: {:?}",
             count,
             key,

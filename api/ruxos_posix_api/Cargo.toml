@@ -55,5 +55,11 @@ spin = { version = "0.9" }
 lazy_static = { version = "1.4", features = ["spin_no_std"] }
 flatten_objects = { path = "../../crates/flatten_objects" }
 
+bitflags = "2.2"
+ahash = { version = "0.8.7", default-features = false, features = [
+    "compile-time-rng",
+] }
+lazy_init = { path = "../../crates/lazy_init" }
+
 [build-dependencies]
 bindgen ={ version = "0.66" }

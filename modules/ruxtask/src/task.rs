@@ -116,6 +116,10 @@ impl TaskInner {
         self.id
     }
 
+    pub const fn tl(&self) -> &AtomicU64 {
+        &self.tl
+    }
+
     /// Gets the name of the task.
     pub fn name(&self) -> &str {
         self.name.as_str()
@@ -143,7 +147,6 @@ impl TaskInner {
             if addr == 0 {
                 return;
             }
-            debug!("tl addr: {:p}, tl val: {}", self.tl.as_ptr(), self.tl.load(Ordering::SeqCst));
             (addr as *mut core::ffi::c_int).write_volatile(0)
         }
     }

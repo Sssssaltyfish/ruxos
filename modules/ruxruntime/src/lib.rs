@@ -201,7 +201,10 @@ pub extern "C" fn rust_main(cpu_id: usize, dtb: usize) -> ! {
     #[cfg(feature = "multitask")]
     {
         ruxtask::init_scheduler();
-        axsync::futex::init_futex();
+        extern "C" {
+            fn init_futex();
+        }
+        unsafe { init_futex() };
     }
 
     #[cfg(any(feature = "fs", feature = "net", feature = "display"))]

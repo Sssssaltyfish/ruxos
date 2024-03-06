@@ -21,19 +21,20 @@ use syscall::{
 use lazy_init::LazyInit;
 use types::{FutexBucket, FutexKey, FutexVec};
 
+use crate::ctypes;
+
 pub mod syscall;
 mod types;
 
 // Use the same count as linux kernel to keep the same performance
-// const BUCKET_COUNT: usize = ((1 << 8) * (ruxconfig::SMP)).next_power_of_two();
-const BUCKET_COUNT: usize = 1;
+const BUCKET_COUNT: usize = ((1 << 8) * (ruxconfig::SMP)).next_power_of_two();
 const BUCKET_MASK: usize = BUCKET_COUNT - 1;
 static FUTEX_BUCKETS: LazyInit<FutexVec> = LazyInit::new();
 
-pub fn init_futex() {
+#[no_mangle]
+pub extern "C" fn init_futex() {
     FUTEX_BUCKETS.init_by(FutexVec::new(BUCKET_COUNT));
 }
-use crate::ctypes;
 
 /// `Futex` implementation inspired by occlum
 pub fn sys_futex(
@@ -64,13 +65,11 @@ pub fn sys_futex(
             None
         };
         debug!(
-            "sys_futex <= addr: {:#x}, op: {:?}, val: {}, to: {:?}, task: {:?}", // ", all_task: {:?}"
+            "sys_futex <= addr: {:#x}, op: {:?}, val: {}, to: {:?}",
             uaddr,
             op,
             val,
             timeout,
-            ruxtask::current().id_name(),
-            // ruxtask::all_task()
         );
 
         let ret = match op {

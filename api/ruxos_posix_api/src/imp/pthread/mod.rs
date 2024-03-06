@@ -10,6 +10,7 @@
 use alloc::{boxed::Box, collections::BTreeMap, sync::Arc};
 use core::cell::UnsafeCell;
 use core::ffi::{c_int, c_void};
+use core::sync::atomic::Ordering;
 
 use axerrno::{LinuxError, LinuxResult};
 use ruxtask::AxTaskRef;
@@ -210,8 +211,15 @@ pub fn sys_pthread_exit(retval: *mut c_void) -> ! {
     #[cfg(feature = "musl")]
     {
         let id = ruxtask::current().as_task_ref().id().as_u64();
+        // if current task is not `main`
         if id != 2u64 {
-            ruxtask::current().as_task_ref().free_thread_list_lock();
+            let current = ruxtask::current();
+            let current = current.as_task_ref();
+            current.free_thread_list_lock();
+            let _ = futex::syscall::futex_wake(
+                current.tl().load(Ordering::Relaxed) as usize as _,
+                usize::MAX,
+            );
         }
         // retval is exit code for musl
         Pthread::exit_musl(retval as usize);
