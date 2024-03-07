@@ -75,25 +75,14 @@ pub fn futex_op_and_flags_from_u32(bits: u32) -> AxResult<(FutexOp, FutexFlags)>
     Ok((op, flags))
 }
 
-pub fn futex_wait(
-    futex_addr: *const i32,
-    futex_val: i32,
-    timeout: Option<Duration>,
-) -> AxResult<()> {
-    futex_wait_bitset(futex_addr, futex_val, timeout, FUTEX_BITSET_MATCH_ANY)
-}
-
-pub fn futex_wait_bitset(
+fn futex_wait_timeout(
     futex_addr: *const i32,
     futex_val: i32,
     timeout: Option<Duration>,
     bitset: u32,
+    is_relative: bool,
 ) -> AxResult<()> {
-    debug!(
-        "futex_wait_bitset addr: {:#x}, val: {}, timeout: {:?}, bitset: {:#x}",
-        futex_addr as usize, futex_val, timeout, bitset
-    );
-    // Get and lock the futex bucket
+    // Get the futex bucket
     let futex_key = FutexKey::new(futex_addr, bitset);
     let (_, futex_bucket) = FUTEX_BUCKETS.get_bucket(futex_key);
 
@@ -117,10 +106,10 @@ pub fn futex_wait_bitset(
     match timeout {
         Some(timeout) => {
             #[cfg(feature = "irq")]
-            let wait_timeout = if bitset == FUTEX_BITSET_MATCH_ANY {
-                FutexBucket::wait_timeout_absolutely_meta_if
-            } else {
+            let wait_timeout = if is_relative {
                 FutexBucket::wait_timeout_meta_if
+            } else {
+                FutexBucket::wait_timeout_absolutely_meta_if
             };
             #[cfg(not(feature = "irq"))]
             let wait_timeout = FutexBucket::wait_timeout_absolutely_meta_if;
@@ -129,6 +118,31 @@ pub fn futex_wait_bitset(
         }
         None => futex_bucket.wait_meta_if(futex_key, condition),
     }
+}
+
+pub fn futex_wait(
+    futex_addr: *const i32,
+    futex_val: i32,
+    timeout: Option<Duration>,
+) -> AxResult<()> {
+    debug!(
+        "futex_wait addr: {:#x}, val: {}, timeout: {:?}",
+        futex_addr as usize, futex_val, timeout
+    );
+    futex_wait_timeout(futex_addr, futex_val, timeout, FUTEX_BITSET_MATCH_ANY, true)
+}
+
+pub fn futex_wait_bitset(
+    futex_addr: *const i32,
+    futex_val: i32,
+    timeout: Option<Duration>,
+    bitset: u32,
+) -> AxResult<()> {
+    debug!(
+        "futex_wait_bitset addr: {:#x}, val: {}, timeout: {:?}, bitset: {:#x}",
+        futex_addr as usize, futex_val, timeout, bitset
+    );
+    futex_wait_timeout(futex_addr, futex_val, timeout, bitset, false)
 }
 
 pub fn futex_wake(futex_addr: *const i32, max_count: usize) -> AxResult<usize> {

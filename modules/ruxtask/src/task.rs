@@ -147,7 +147,7 @@ impl TaskInner {
             if addr == 0 {
                 return;
             }
-            (addr as *mut core::ffi::c_int).write_volatile(0)
+            unsafe { &*(addr as *const AtomicI32) }.store(0, Ordering::Release)
         }
     }
 }

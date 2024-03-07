@@ -218,7 +218,7 @@ pub fn sys_pthread_exit(retval: *mut c_void) -> ! {
             current.free_thread_list_lock();
             let _ = futex::syscall::futex_wake(
                 current.tl().load(Ordering::Relaxed) as usize as _,
-                usize::MAX,
+                1,
             );
         }
         // retval is exit code for musl
