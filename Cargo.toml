@@ -67,3 +67,6 @@ lto = true
 [profile.reldebug]
 inherits = "release"
 debug = true
+
+[patch.crates-io]
+sbi-spec = { path = "patches/rustsbi/sbi-spec" }
