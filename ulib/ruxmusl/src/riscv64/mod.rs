@@ -1,26 +1,50 @@
 pub mod syscall_id;
 
-use core::ffi::c_int;
+use core::{arch::asm, ffi::c_int, mem};
 use ruxos_posix_api::ctypes;
 use syscall_id::SyscallId;
 
-#[repr(C)]
-pub struct RvSyscallArgs {
-    a0: usize,
-    a1: usize,
-    a2: usize,
-    a3: usize,
-    a4: usize,
-    a5: usize,
+// todo: ra MUST be saved by the caller
+#[no_mangle]
+#[naked]
+pub unsafe extern "C" fn riscv_syscall_asm(
+    _a0: usize,
+    _a1: usize,
+    _a2: usize,
+    _a3: usize,
+    _a4: usize,
+    _a5: usize,
+    _: usize,
+    _syscall_id: usize,
+) {
+    asm!(
+        "
+        addi sp,sp,-{arg_ret_size}
+        sd a0,0(sp)
+        sd a1,8(sp)
+        sd a2,16(sp)
+        sd a3,24(sp)
+        sd a4,32(sp)
+        sd a5,40(sp)
+        sd ra,48(sp)
+
+        mv a0,a7
+        mv a1,sp
+        call {syscall_entry}
+
+        ld ra,48(sp)
+        addi sp,sp,{arg_ret_size}
+        ret",
+        arg_ret_size = const mem::size_of::<[usize; 6]>() + mem::size_of::<usize>(),
+        syscall_entry = sym riscv_syscall_entry,
+        options(noreturn),
+    );
 }
 
 #[no_mangle]
-pub extern "C" fn riscv_syscall_entry(syscall_id: usize, args: RvSyscallArgs) -> isize {
-    let id = SyscallId::try_from(syscall_id).unwrap_or_else(|_| {
-        axlog::warn!("unknown syscall: {}", syscall_id);
-        SyscallId::INVALID
-    });
-    syscall(id, [args.a0, args.a1, args.a2, args.a3, args.a4, args.a5])
+pub extern "C" fn riscv_syscall_entry(syscall_id: usize, args: &[usize; 6]) -> isize {
+    let id = SyscallId::try_from(syscall_id).unwrap_or_else(|_| SyscallId::INVALID);
+    syscall(id, *args)
 }
 
 pub fn syscall(syscall_id: SyscallId, args: [usize; 6]) -> isize {

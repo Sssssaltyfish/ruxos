@@ -4,6 +4,8 @@
 //!
 //! Only support AARCH64 right now
 
+#![feature(asm_const)]
+#![feature(naked_functions)]
 #![cfg_attr(all(not(test), not(doc)), no_std)]
 
 #[macro_use]
