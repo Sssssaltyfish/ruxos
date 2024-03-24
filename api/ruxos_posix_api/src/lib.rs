@@ -104,10 +104,7 @@ pub use imp::signal::{sys_getitimer, sys_setitimer, sys_sigaction, sys_sigaltsta
 
 #[cfg(feature = "multitask")]
 pub use imp::pthread::futex::sys_futex;
-#[cfg(all(
-    feature = "multitask",
-    feature = "musl",
-))]
+#[cfg(all(feature = "multitask", feature = "musl",))]
 pub use imp::pthread::sys_clone;
 #[cfg(all(feature = "multitask", feature = "musl"))]
 pub use imp::pthread::sys_set_tid_address;
