@@ -1,7 +1,9 @@
+.include "syscall_asm.inc"
+
 .global __unmapself
 .type __unmapself, %function
 __unmapself:
 	li a7, 215 # SYS_munmap
-	call riscv_syscall_asm
+	RUX_SYSCALL_ASM
 	li a7, 93  # SYS_exit
-	call riscv_syscall_asm
+	RUX_SYSCALL_ASM

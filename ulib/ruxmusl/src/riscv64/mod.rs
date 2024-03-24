@@ -4,7 +4,8 @@ use core::{arch::asm, ffi::c_int, mem};
 use ruxos_posix_api::ctypes;
 use syscall_id::SyscallId;
 
-// todo: ra MUST be saved by the caller
+type SyscallArgs = [usize; 6];
+
 #[no_mangle]
 #[naked]
 pub unsafe extern "C" fn riscv_syscall_asm(
@@ -35,19 +36,19 @@ pub unsafe extern "C" fn riscv_syscall_asm(
         ld ra,48(sp)
         addi sp,sp,{arg_ret_size}
         ret",
-        arg_ret_size = const mem::size_of::<[usize; 6]>() + mem::size_of::<usize>(),
+        arg_ret_size = const mem::size_of::<SyscallArgs>() + mem::size_of::<usize>(),
         syscall_entry = sym riscv_syscall_entry,
         options(noreturn),
     );
 }
 
 #[no_mangle]
-pub extern "C" fn riscv_syscall_entry(syscall_id: usize, args: &[usize; 6]) -> isize {
-    let id = SyscallId::try_from(syscall_id).unwrap_or_else(|_| SyscallId::INVALID);
+pub extern "C" fn riscv_syscall_entry(syscall_id: usize, args: &SyscallArgs) -> isize {
+    let id = SyscallId::try_from(syscall_id).unwrap_or(SyscallId::INVALID);
     syscall(id, *args)
 }
 
-pub fn syscall(syscall_id: SyscallId, args: [usize; 6]) -> isize {
+pub fn syscall(syscall_id: SyscallId, args: SyscallArgs) -> isize {
     debug!("syscall <= syscall_name: {:?}", syscall_id);
 
     unsafe {

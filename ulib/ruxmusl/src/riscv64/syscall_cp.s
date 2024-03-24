@@ -1,3 +1,5 @@
+.include "syscall_asm.inc"
+
 .global __cp_begin
 .hidden __cp_begin
 .global __cp_end
@@ -22,7 +24,7 @@ __cp_begin:
 	mv a5, a7
 	ld a6, 0(sp)
 	mv a7, t0
-	call riscv_syscall_asm
+	RUX_SYSCALL_ASM
 __cp_end:
 	ret
 __cp_cancel:

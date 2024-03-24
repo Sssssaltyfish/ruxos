@@ -1,3 +1,5 @@
+.include "syscall_asm.inc"
+
 .global __restore
 .type __restore, %function
 __restore:
@@ -5,4 +7,4 @@ __restore:
 .type __restore_rt, %function
 __restore_rt:
 	li a7, 139 # SYS_rt_sigreturn
-	call riscv_syscall_asm
+	RUX_SYSCALL_ASM
