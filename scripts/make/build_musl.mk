@@ -54,7 +54,7 @@ ifeq ($(wildcard $(install_dir)),)
   endif
 	mkdir -p $(build_dir)
   ifeq ($(ARCH), riscv64)
-    cp -rf $(muslibc_dir)/src/riscv64/patches/* $(musl_dir)
+	cp -rf $(muslibc_dir)/src/riscv64/patches/* $(musl_dir)
   endif
 	cd $(build_dir) && ../musl-1.2.3/configure --prefix=../$(install_dir_name) --exec-prefix=../ --syslibdir=../$(install_dir_name)/lib --disable-shared ARCH=$(RUX_ARCH) CC=$(CC) CROSS_COMPILE=$(CROSS_COMPILE) CFLAGS='$(CFLAGS)'
 	cd $(build_dir) && $(MAKE) -j && $(MAKE) install
