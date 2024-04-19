@@ -1766,6 +1766,7 @@ dependencies = [
 [[package]]
 name = "sbi-spec"
 version = "0.0.7"
+source = "git+https://github.com/Sssssaltyfish/rustsbi.git?rev=a25d448d3d770c6db493a472e3e78d949b63f523#a25d448d3d770c6db493a472e3e78d949b63f523"
 
 [[package]]
 name = "scheduler"

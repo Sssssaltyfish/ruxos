@@ -66,6 +66,8 @@ app-objs := main.o
 
 app-objs := $(addprefix $(APP)/,$(app-objs))
 
+$(app-objs): build_musl prebuild
+
 $(APP)/%.o: $(APP)/%.c build_musl
 	$(call run_cmd,$(CC),$(CFLAGS) $(APP_CFLAGS) -c -o $@ $<)
 
