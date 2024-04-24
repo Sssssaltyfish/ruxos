@@ -84,6 +84,9 @@ extern "C" fn fini_dummy() {}
 #[no_mangle]
 extern "C" fn ldso_dummy() {}
 
+#[no_mangle]
+static __dso_handle: usize = 0;
+
 extern "C" {
     fn main(argc: c_int, argv: *mut *mut c_char) -> c_int;
     fn __libc_start_main(
