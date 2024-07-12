@@ -67,9 +67,9 @@ impl<G: BaseGuard, T, S: Strategy> BaseSpinLock<G, T, S> {
     pub const fn new(data: T) -> Self {
         Self {
             _phantom: PhantomData,
-            data: UnsafeCell::new(data),
             #[cfg(feature = "smp")]
             lock: AtomicBool::new(false),
+            data: UnsafeCell::new(data),
         }
     }
 

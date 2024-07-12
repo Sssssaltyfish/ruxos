@@ -11,7 +11,7 @@
 
 use alloc::{string::String, sync::Arc};
 
-pub(crate) use crate::run_queue::{AxRunQueue, RUN_QUEUE};
+pub(crate) use crate::run_queue::RunQueue;
 
 #[doc(cfg(feature = "multitask"))]
 pub use crate::task::{CurrentTask, TaskId, TaskInner};
@@ -97,7 +97,7 @@ pub fn init_scheduler_secondary() {
 #[doc(cfg(feature = "irq"))]
 pub fn on_timer_tick() {
     crate::timers::check_events();
-    RUN_QUEUE.lock().scheduler_timer_tick();
+    RunQueue::current_locked().scheduler_timer_tick();
 }
 
 /// Spawns a new task with the given parameters.
@@ -108,7 +108,7 @@ where
     F: FnOnce() + Send + 'static,
 {
     let task = TaskInner::new(f, name, stack_size);
-    RUN_QUEUE.lock().add_task(task.clone());
+    RunQueue::current_locked().add_task(task.clone());
     task
 }
 
@@ -159,7 +159,7 @@ where
 ///
 /// Put new thread into run_queue
 pub fn put_task(task: AxTaskRef) {
-    RUN_QUEUE.lock().add_task(task);
+    RunQueue::current_locked().add_task(task);
 }
 
 /// Set the priority for current task.
@@ -172,13 +172,13 @@ pub fn put_task(task: AxTaskRef) {
 ///
 /// [CFS]: https://en.wikipedia.org/wiki/Completely_Fair_Scheduler
 pub fn set_priority(prio: isize) -> bool {
-    RUN_QUEUE.lock().set_current_priority(prio)
+    RunQueue::current_locked().set_current_priority(prio)
 }
 
 /// Current task gives up the CPU time voluntarily, and switches to another
 /// ready task.
 pub fn yield_now() {
-    RUN_QUEUE.lock().yield_current();
+    RunQueue::current_locked().yield_current();
 }
 
 /// Current task is going to sleep for the given duration.
@@ -193,7 +193,7 @@ pub fn sleep(dur: core::time::Duration) {
 /// If the feature `irq` is not enabled, it uses busy-wait instead.
 pub fn sleep_until(deadline: ruxhal::time::TimeValue) {
     #[cfg(feature = "irq")]
-    RUN_QUEUE.lock().sleep_until(deadline);
+    RunQueue::current_locked().sleep_until(deadline);
     #[cfg(not(feature = "irq"))]
     ruxhal::time::busy_wait_until(deadline);
 }
@@ -202,7 +202,7 @@ pub fn sleep_until(deadline: ruxhal::time::TimeValue) {
 pub fn exit(exit_code: i32) -> ! {
     #[cfg(not(feature = "musl"))]
     current().destroy_keys();
-    RUN_QUEUE.lock().exit_current(exit_code)
+    RunQueue::current_locked().exit_current(exit_code)
 }
 
 /// The idle task routine.

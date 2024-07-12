@@ -54,25 +54,14 @@ cfg_if::cfg_if! {
         /// specific key-value storage for each task
         #[cfg(not(feature = "musl"))]
         pub mod tsd;
-        /// TODO: if irq is disabled, what value should AVENRUN be?
-        /// average run load, same as in linux kernel
-        static mut AVENRUN: [u64; 3] = [0, 0, 0];
-
-        /// Get the load average
-        pub fn get_avenrun(loads: &mut [u64; 3]) {
-            for i in 0..3 {
-                unsafe {
-                    // TODO: disable irq for safety
-                    loads[i] = AVENRUN[i];
-                }
-            }
-        }
+        pub use self::loadavg::get_avenrun;
 
         #[cfg(feature = "irq")]
         mod timers;
 
         #[doc(cfg(feature = "multitask"))]
         pub use self::api::*;
+
         pub use self::api::{sleep, sleep_until, yield_now};
         pub use task::TaskState;
     } else {

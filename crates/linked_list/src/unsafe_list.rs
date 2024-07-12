@@ -95,6 +95,12 @@ pub struct List<A: Adapter + ?Sized> {
     first: Option<NonNull<A::EntryType>>,
 }
 
+impl<A: Adapter + Default + ?Sized> Default for List<A> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // SAFETY: The list is itself can be safely sent to other threads but we restrict it to being `Send`
 // only when its entries are also `Send`.
 unsafe impl<A: Adapter + ?Sized> Send for List<A> where A::EntryType: Send {}
@@ -413,7 +419,7 @@ impl<A: Adapter + ?Sized> iter::DoubleEndedIterator for Iterator<'_, A> {
 /// static LIST2: List<ExampleAdapter> = List::new();
 /// ```
 pub unsafe trait Adapter {
-    /// The type of the enties in the list.
+    /// The type of the entries in the list.
     type EntryType: ?Sized;
 
     /// Retrieves the linked list links for the given object.

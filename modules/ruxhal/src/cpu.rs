@@ -9,6 +9,8 @@
 
 //! CPU-related operations.
 
+use percpu::PerCpu;
+
 #[percpu::def_percpu]
 static CPU_ID: usize = 0;
 
@@ -17,6 +19,12 @@ static IS_BSP: bool = false;
 
 #[percpu::def_percpu]
 static CURRENT_TASK_PTR: usize = 0;
+
+/// It is read by multiple CPUs, but only write once in `init`(`_secondary`),
+/// and fences are employed to prevent race condition. It just stores `percpu_area_base`,
+/// as a performance improvement to ease the need of calculating `percpu_area_base`
+/// every time.
+static mut PERCPU_BASES: [usize; ruxconfig::SMP] = [0; ruxconfig::SMP];
 
 /// Returns the ID of the current CPU.
 #[inline]
@@ -82,6 +90,21 @@ pub unsafe fn set_current_task_ptr<T>(ptr: *const T) {
     }
 }
 
+#[inline]
+pub fn get_percpu_base(cpu_id: usize) -> usize {
+    unsafe { PERCPU_BASES[cpu_id] }
+}
+
+#[inline]
+pub fn get_current_percpu_base() -> usize {
+    unsafe { get_percpu_base(CPU_ID.read_current_raw()) }
+}
+
+#[inline]
+pub fn get_percpu_ptr_on<T: PerCpu>(t: &T, cpu_id: usize) -> *mut T::Type {
+    unsafe { (t.offset() + PERCPU_BASES[cpu_id]) as _ }
+}
+
 #[allow(dead_code)]
 pub(crate) fn init_primary(cpu_id: usize) {
     percpu::init(ruxconfig::SMP);
@@ -89,7 +112,9 @@ pub(crate) fn init_primary(cpu_id: usize) {
     unsafe {
         CPU_ID.write_current_raw(cpu_id);
         IS_BSP.write_current_raw(true);
+        PERCPU_BASES[cpu_id] = percpu::percpu_area_base(cpu_id);
     }
+    core::sync::atomic::fence(core::sync::atomic::Ordering::AcqRel);
 }
 
 #[allow(dead_code)]
@@ -98,5 +123,7 @@ pub(crate) fn init_secondary(cpu_id: usize) {
     unsafe {
         CPU_ID.write_current_raw(cpu_id);
         IS_BSP.write_current_raw(false);
+        PERCPU_BASES[cpu_id] = percpu::percpu_area_base(cpu_id);
     }
+    core::sync::atomic::fence(core::sync::atomic::Ordering::AcqRel);
 }

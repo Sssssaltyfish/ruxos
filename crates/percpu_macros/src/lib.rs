@@ -120,20 +120,23 @@ pub fn def_percpu(attr: TokenStream, item: TokenStream) -> TokenStream {
         #(#attrs)*
         #vis static #name: #struct_name = #struct_name {};
 
-        impl #struct_name {
-            /// Returns the offset relative to the per-CPU data area base on the current CPU.
-            #[inline]
-            pub fn offset(&self) -> usize {
+        impl percpu::PerCpu for #struct_name {
+            type Type = #ty;
+
+            #[inline(always)]
+            fn offset(&self) -> usize {
                 #offset
             }
+        }
 
+        impl #struct_name {
             /// Returns the raw pointer of this per-CPU data on the current CPU.
             ///
             /// # Safety
             ///
             /// Caller must ensure that preemption is disabled on the current CPU.
             #[inline]
-            pub unsafe fn current_ptr(&self) -> *const #ty {
+            pub unsafe fn current_ptr(&self) -> *mut #ty {
                 #current_ptr
             }
 

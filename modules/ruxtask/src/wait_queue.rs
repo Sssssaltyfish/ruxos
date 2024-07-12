@@ -11,7 +11,7 @@ use alloc::collections::VecDeque;
 use alloc::sync::Arc;
 use spinlock::SpinRaw;
 
-use crate::{AxRunQueue, AxTaskRef, CurrentTask, RUN_QUEUE};
+use crate::{AxTaskRef, CurrentTask, RunQueue};
 
 type ItemType<Meta> = (AxTaskRef, Meta);
 type QueueType<Meta> = VecDeque<ItemType<Meta>>;
@@ -84,7 +84,7 @@ impl<Meta> WaitQueueWithMetadata<Meta> {
     /// Blocks the current task and put it into the wait queue, until other task
     /// notifies it.
     pub fn wait_meta(&self, meta: Meta) {
-        RUN_QUEUE.lock().block_current(|task| {
+        RunQueue::current_locked().block_current(|task| {
             task.set_in_wait_queue(true);
             self.queue.lock().push_back((task, meta))
         });
@@ -97,7 +97,7 @@ impl<Meta> WaitQueueWithMetadata<Meta> {
     where
         F: FnMut() -> Result<(), R>,
     {
-        let mut rq = RUN_QUEUE.lock();
+        let mut rq = RunQueue::current_locked();
         let mut wq = self.queue.lock();
         condition()?;
 
@@ -147,7 +147,7 @@ impl<Meta> WaitQueueWithMetadata<Meta> {
         #[cfg(feature = "irq")]
         crate::timers::set_alarm_wakeup(deadline, curr.clone());
 
-        RUN_QUEUE.lock().block_current(|task| {
+        RunQueue::current_locked().block_current(|task| {
             task.set_in_wait_queue(true);
             self.queue.lock().push_back((task, meta))
         });
@@ -168,7 +168,7 @@ impl<Meta> WaitQueueWithMetadata<Meta> {
         F: FnMut() -> Result<(), R>,
     {
         let curr = crate::current();
-        let mut rq = RUN_QUEUE.lock();
+        let mut rq = RunQueue::current_locked();
         let mut wq = self.queue.lock();
         condition()?;
 
@@ -195,7 +195,7 @@ impl<Meta> WaitQueueWithMetadata<Meta> {
     /// If `resched` is true, the current task will be preempted when the
     /// preemption is enabled.
     pub fn notify_one(&self, resched: bool) -> bool {
-        let mut rq = RUN_QUEUE.lock();
+        let mut rq = RunQueue::current_locked();
         if !self.queue.lock().is_empty() {
             self.notify_one_locked(resched, &mut rq)
         } else {
@@ -209,14 +209,14 @@ impl<Meta> WaitQueueWithMetadata<Meta> {
     /// preemption is enabled.
     pub fn notify_all(&self, resched: bool) {
         loop {
-            let mut rq = RUN_QUEUE.lock();
+            let mut rq = RunQueue::current_locked();
             if let Some((task, _)) = self.queue.lock().pop_front() {
                 task.set_in_wait_queue(false);
                 rq.unblock_task(task, resched);
             } else {
                 break;
             }
-            drop(rq); // we must unlock `RUN_QUEUE` after unlocking `self.queue`.
+            drop(rq); // we must unlock `RunQueue` after unlocking `self.queue`.
         }
     }
 
@@ -225,7 +225,7 @@ impl<Meta> WaitQueueWithMetadata<Meta> {
     /// If `resched` is true, the current task will be preempted when the
     /// preemption is enabled.
     pub fn notify_task(&self, resched: bool, task: &AxTaskRef) -> bool {
-        let mut rq = RUN_QUEUE.lock();
+        let mut rq = RunQueue::current_locked();
         let mut wq = self.queue.lock();
         if let Some(index) = wq.iter().position(|(t, _)| Arc::ptr_eq(t, task)) {
             task.set_in_wait_queue(false);
@@ -246,7 +246,7 @@ impl<Meta> WaitQueueWithMetadata<Meta> {
     where
         F: FnMut(&AxTaskRef, &Meta) -> bool,
     {
-        let mut rq = RUN_QUEUE.lock();
+        let mut rq = RunQueue::current_locked();
         let mut wq = self.queue.lock();
         let len_before = wq.len();
 
@@ -263,7 +263,7 @@ impl<Meta> WaitQueueWithMetadata<Meta> {
         len_before - wq.len()
     }
 
-    pub(crate) fn notify_one_locked(&self, resched: bool, rq: &mut AxRunQueue) -> bool {
+    pub(crate) fn notify_one_locked(&self, resched: bool, rq: &mut RunQueue) -> bool {
         if let Some((task, _)) = self.queue.lock().pop_front() {
             task.set_in_wait_queue(false);
             rq.unblock_task(task, resched);
@@ -273,7 +273,7 @@ impl<Meta> WaitQueueWithMetadata<Meta> {
         }
     }
 
-    pub(crate) fn notify_all_locked(&self, resched: bool, rq: &mut AxRunQueue) {
+    pub(crate) fn notify_all_locked(&self, resched: bool, rq: &mut RunQueue) {
         while let Some((task, _)) = self.queue.lock().pop_front() {
             task.set_in_wait_queue(false);
             rq.unblock_task(task, resched);
@@ -346,7 +346,7 @@ impl<Meta: Clone> WaitQueueWithMetadata<Meta> {
         F: FnMut() -> bool,
     {
         loop {
-            let mut rq = RUN_QUEUE.lock();
+            let mut rq = RunQueue::current_locked();
             if condition() {
                 break;
             }
@@ -384,7 +384,7 @@ impl<Meta: Clone> WaitQueueWithMetadata<Meta> {
 
         let mut timeout = true;
         while ruxhal::time::current_time() < deadline {
-            let mut rq = RUN_QUEUE.lock();
+            let mut rq = RunQueue::current_locked();
             if condition() {
                 timeout = false;
                 break;

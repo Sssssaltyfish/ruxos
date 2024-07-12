@@ -7,6 +7,16 @@
  *   See the Mulan PSL v2 for more details.
  */
 
+/// No effect for "sp-naive" use, always return zero.
+pub fn percpu_area_size() -> usize {
+    0
+}
+
+/// No effect for "sp-naive" use, always return zero.
+pub fn percpu_area_base(cpu_id: usize) -> usize {
+    0
+}
+
 /// No effect for "sp-naive" use.
 pub fn init(_max_cpu_num: usize) {}
 

@@ -23,7 +23,7 @@ use ruxhal::arch::TaskContext;
 
 #[cfg(not(feature = "musl"))]
 use crate::tsd::{DestrFunction, KEYS, TSD};
-use crate::{AxRunQueue, AxTask, AxTaskRef, WaitQueue};
+use crate::{RunQueue, AxTask, AxTaskRef, WaitQueue};
 
 /// A unique identifier for a thread.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -387,14 +387,14 @@ impl TaskInner {
     fn current_check_preempt_pending() {
         let curr = crate::current();
         if curr.need_resched.load(Ordering::Acquire) && curr.can_preempt(0) {
-            let mut rq = crate::RUN_QUEUE.lock();
+            let mut rq = RunQueue::current().lock();
             if curr.need_resched.load(Ordering::Acquire) {
                 rq.preempt_resched();
             }
         }
     }
 
-    pub(crate) fn notify_exit(&self, exit_code: i32, rq: &mut AxRunQueue) {
+    pub(crate) fn notify_exit(&self, exit_code: i32, rq: &mut RunQueue) {
         self.exit_code.store(exit_code, Ordering::Release);
         self.wait_for_exit.notify_all_locked(false, rq);
     }
@@ -536,7 +536,7 @@ impl Deref for CurrentTask {
 
 extern "C" fn task_entry() -> ! {
     // release the lock that was implicitly held across the reschedule
-    unsafe { crate::RUN_QUEUE.force_unlock() };
+    unsafe { crate::RunQueue::current().force_unlock() };
     #[cfg(feature = "irq")]
     ruxhal::arch::enable_irqs();
     let task = crate::current();

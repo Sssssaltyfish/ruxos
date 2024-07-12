@@ -71,6 +71,7 @@ impl<T: Debug, const S: usize> Debug for RRTask<T, S> {
 ///
 /// [Round-Robin]: https://en.wikipedia.org/wiki/Round-robin_scheduling
 /// [`FifoScheduler`]: crate::FifoScheduler
+#[derive(Debug)]
 pub struct RRScheduler<T, const MAX_TIME_SLICE: usize> {
     ready_queue: VecDeque<Arc<RRTask<T, MAX_TIME_SLICE>>>,
 }

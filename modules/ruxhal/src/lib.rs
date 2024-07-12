@@ -51,6 +51,8 @@ pub mod mem;
 pub mod time;
 pub mod trap;
 
+pub use cpu::{get_current_percpu_base, get_percpu_base, get_percpu_ptr_on};
+
 #[cfg(feature = "tls")]
 pub mod tls;
 

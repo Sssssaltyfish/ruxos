@@ -13,7 +13,7 @@ use ruxhal::time::current_time;
 use spinlock::SpinNoIrq;
 use timer_list::{TimeValue, TimerEvent, TimerList};
 
-use crate::{AxTaskRef, RUN_QUEUE};
+use crate::{AxTaskRef, RunQueue};
 
 // TODO: per-CPU
 static TIMER_LIST: LazyInit<SpinNoIrq<TimerList<TaskWakeupEvent>>> = LazyInit::new();
@@ -22,7 +22,7 @@ struct TaskWakeupEvent(AxTaskRef);
 
 impl TimerEvent for TaskWakeupEvent {
     fn callback(self, _now: TimeValue) {
-        let mut rq = RUN_QUEUE.lock();
+        let mut rq = RunQueue::current_locked();
         self.0.set_in_timer_list(false);
         rq.unblock_task(self.0, true);
     }

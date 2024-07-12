@@ -9,8 +9,6 @@
 
 use core::sync::atomic::{AtomicU64, Ordering};
 
-use crate::AVENRUN;
-
 /// bits to shift fixed point
 const FSHIFT: u64 = 16;
 /// fixed point
@@ -73,6 +71,20 @@ pub(crate) fn calc_load_tick(is_idle: bool) {
     for i in 0..3 {
         unsafe {
             AVENRUN[i] = calc_load(AVENRUN[i], EXP[i], (all_cnt - idle_cnt) * FIXED_1 / all_cnt);
+        }
+    }
+}
+
+// TODO: if irq is disabled, what value should AVENRUN be?
+/// average run load, same as in linux kernel
+static mut AVENRUN: [u64; 3] = [0, 0, 0];
+
+/// Get the load average
+pub fn get_avenrun(loads: &mut [u64; 3]) {
+    for i in 0..3 {
+        unsafe {
+            // TODO: disable irq for safety
+            loads[i] = AVENRUN[i];
         }
     }
 }

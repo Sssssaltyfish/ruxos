@@ -68,6 +68,15 @@ pub mod __priv {
     pub use kernel_guard::NoPreempt as NoPreemptGuard;
 }
 
+/// "Auto"-implemented trait for a per-CPU data.
+pub trait PerCpu {
+    /// The actual datatype for this per-CPU data.
+    type Type;
+
+    /// Returns the offset relative to the per-CPU data area base on the current CPU.
+    fn offset(&self) -> usize;
+}
+
 cfg_if::cfg_if! {
     if #[cfg(doc)] {
         /// Example per-CPU data for documentation only.

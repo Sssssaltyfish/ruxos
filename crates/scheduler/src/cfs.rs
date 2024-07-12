@@ -116,6 +116,7 @@ impl<T: Debug> Debug for CFSTask<T> {
 /// A simple [Completely Fair Scheduler][1] (CFS).
 ///
 /// [1]: https://en.wikipedia.org/wiki/Completely_Fair_Scheduler
+#[derive(Debug)]
 pub struct CFScheduler<T> {
     ready_queue: BTreeMap<(isize, isize), Arc<CFSTask<T>>>, // (vruntime, taskid)
     min_vruntime: Option<AtomicIsize>,

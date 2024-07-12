@@ -19,7 +19,7 @@
 extern crate alloc;
 
 use alloc::{boxed::Box, sync::Arc};
-use core::ptr::NonNull;
+use core::{fmt::Debug, ptr::NonNull};
 
 use crate::unsafe_list::{self, Adapter, Cursor, Iterator, Links};
 
@@ -231,5 +231,17 @@ impl<G: AdapterWrapped> Default for List<G> {
 impl<G: AdapterWrapped> Drop for List<G> {
     fn drop(&mut self) {
         while self.pop_front().is_some() {}
+    }
+}
+
+impl<G> Debug for List<G>
+where
+    G: AdapterWrapped,
+    for <'a> &'a G::EntryType: Debug,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_list()
+            .entries(self.iter())
+            .finish()
     }
 }

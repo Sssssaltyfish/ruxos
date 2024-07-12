@@ -69,6 +69,7 @@ impl<T: Debug> Debug for FifoTask<T> {
 /// As it's a cooperative scheduler, it does nothing when the timer tick occurs.
 ///
 /// It internally uses a linked list as the ready queue.
+#[derive(Debug)]
 pub struct FifoScheduler<T> {
     ready_queue: List<Arc<FifoTask<T>>>,
 }

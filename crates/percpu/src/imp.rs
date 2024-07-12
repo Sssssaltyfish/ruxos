@@ -122,9 +122,8 @@ pub fn set_local_thread_pointer(cpu_id: usize) {
     }
 }
 
-/// To use `percpu::__priv::NoPreemptGuard::new()` in macro expansion.
+/// To use `percpu::__priv::NoPreemptGuard::new()` and `PerCpu` in macro expansion.
 #[allow(unused_imports)]
-#[cfg(feature = "preempt")]
 use crate as percpu;
 
 /// On x86, we use `gs:SELF_PTR` to store the address of the per-CPU data area base.

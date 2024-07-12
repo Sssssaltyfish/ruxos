@@ -7,14 +7,17 @@
  *   See the Mulan PSL v2 for more details.
  */
 
+use core::sync::atomic::{AtomicUsize, Ordering};
+
 use alloc::collections::VecDeque;
 use alloc::sync::Arc;
 use axerrno::{LinuxError, LinuxResult};
 use kernel_guard::NoPreemptIrqSave;
 use lazy_init::LazyInit;
 use ruxfdtable::{FD_TABLE, RUX_FILE_LIMIT};
+use ruxhal::cpu::this_cpu_id;
 use scheduler::BaseScheduler;
-use spinlock::{BaseSpinLock, Combine, ExpRand, SpinNoIrq};
+use spinlock::{BaseSpinLock, BaseSpinLockGuard, Combine, ExpRand, SpinNoIrq};
 
 use crate::task::{CurrentTask, TaskState};
 use crate::{AxTaskRef, Scheduler, TaskInner, WaitQueue};
@@ -22,11 +25,14 @@ use crate::{AxTaskRef, Scheduler, TaskInner, WaitQueue};
 pub(crate) const BACKOFF_LIMIT: u32 = 8;
 pub(crate) type DefaultStrategy = Combine<ExpRand<BACKOFF_LIMIT>, spinlock::NoOp>;
 pub(crate) type RQLock<T> = BaseSpinLock<NoPreemptIrqSave, T, DefaultStrategy>;
+pub(crate) type RQGuard<'a, T> = BaseSpinLockGuard<'a, NoPreemptIrqSave, T>;
 
-// TODO: per-CPU
-pub(crate) static RUN_QUEUE: LazyInit<RQLock<AxRunQueue>> = LazyInit::new();
+/// Considering that the rq would still be accessed by other CPUs when
+/// like load balancing happens, locks are still needed even if rq's are per-CPU.
+#[percpu::def_percpu]
+static RUN_QUEUE: LazyInit<RQLock<RunQueue>> = LazyInit::new();
 
-// TODO: per-CPU
+// #[percpu::def_percpu]
 static EXITED_TASKS: SpinNoIrq<VecDeque<AxTaskRef>> = SpinNoIrq::new(VecDeque::new());
 
 static WAIT_FOR_EXIT: WaitQueue = WaitQueue::new();
@@ -34,16 +40,36 @@ static WAIT_FOR_EXIT: WaitQueue = WaitQueue::new();
 #[percpu::def_percpu]
 static IDLE_TASK: LazyInit<AxTaskRef> = LazyInit::new();
 
-pub(crate) struct AxRunQueue {
+#[inline(always)]
+pub(crate) fn current_exited_tasks() -> &'static SpinNoIrq<VecDeque<AxTaskRef>> {
+    // let t = unsafe { EXITED_TASKS.current_ref_raw() };
+    let t = &EXITED_TASKS;
+    t
+}
+
+pub(crate) struct RunQueue {
     scheduler: Scheduler,
 }
 
-impl AxRunQueue {
-    pub fn new() -> RQLock<Self> {
-        let gc_task = TaskInner::new(gc_entry, "gc".into(), ruxconfig::TASK_STACK_SIZE);
+impl RunQueue {
+    pub fn new(has_gc: bool) -> RQLock<Self> {
         let mut scheduler = Scheduler::new();
-        scheduler.add_task(gc_task);
+        if has_gc {
+            let gc_task = TaskInner::new(gc_entry, "gc".into(), ruxconfig::TASK_STACK_SIZE);
+            scheduler.add_task(gc_task);
+        }
         RQLock::new(Self { scheduler })
+    }
+
+    #[inline]
+    pub fn current() -> &'static RQLock<Self> {
+        let rq = unsafe { RUN_QUEUE.current_ref_raw() };
+        unsafe { rq.get_unchecked() }
+    }
+
+    #[inline]
+    pub fn current_locked() -> RQGuard<'static, RunQueue> {
+        Self::current().lock()
     }
 
     pub fn add_task(&mut self, task: AxTaskRef) {
@@ -105,12 +131,12 @@ impl AxRunQueue {
         assert!(curr.is_running());
         assert!(!curr.is_idle());
         if curr.is_init() {
-            EXITED_TASKS.lock().clear();
+            current_exited_tasks().lock().clear();
             ruxhal::misc::terminate();
         } else {
             curr.set_state(TaskState::Exited);
             curr.notify_exit(exit_code, self);
-            EXITED_TASKS.lock().push_back(curr.clone());
+            current_exited_tasks().lock().push_back(curr.clone());
             WAIT_FOR_EXIT.notify_one_locked(false, self);
             self.resched(false);
         }
@@ -163,7 +189,7 @@ impl AxRunQueue {
     }
 }
 
-impl AxRunQueue {
+impl RunQueue {
     /// Common reschedule subroutine. If `preempt`, keep current task's time
     /// slice, otherwise reset it.
     fn resched(&mut self, preempt: bool) {
@@ -203,7 +229,11 @@ impl AxRunQueue {
             assert!(Arc::strong_count(prev_task.as_task_ref()) > 1);
             assert!(Arc::strong_count(&next_task) >= 1);
 
+            use kernel_guard::BaseGuard;
+
             CurrentTask::set_current(prev_task, next_task);
+            RunQueue::current().force_unlock();
+            kernel_guard::IrqSave::release(1);
             (*prev_ctx_ptr).switch_to(&*next_ctx_ptr);
         }
     }
@@ -227,22 +257,29 @@ fn gc_entry() {
         if now_file_fd >= RUX_FILE_LIMIT {
             now_file_fd = 3;
         }
+
+        // let n = current_exited_tasks().lock().len();
+        // for _ in 0..n {
+        //     // Do not do the slow drops in the critical section.
+        //     let task = current_exited_tasks().lock().pop_front();
+        //     if let Some(task) = task {
+        //         if Arc::strong_count(&task) == 1 {
+        //
+        //             drop(task);
+        //         } else {
+        //             // Otherwise (e.g, `switch_to` is not completed, held by the
+        //             // joiner, etc), push it back and wait for them to drop first.
+        //             current_exited_tasks().lock().push_back(task);
+        //         }
+        //     }
+        // }
+        // WAIT_FOR_EXIT.wait();
+
         // Drop all exited tasks and recycle resources.
-        let n = EXITED_TASKS.lock().len();
-        for _ in 0..n {
-            // Do not do the slow drops in the critical section.
-            let task = EXITED_TASKS.lock().pop_front();
-            if let Some(task) = task {
-                if Arc::strong_count(&task) == 1 {
-                    // If I'm the last holder of the task, drop it immediately.
-                    drop(task);
-                } else {
-                    // Otherwise (e.g, `switch_to` is not compeleted, held by the
-                    // joiner, etc), push it back and wait for them to drop first.
-                    EXITED_TASKS.lock().push_back(task);
-                }
-            }
-        }
+        // If I'm the last holder of the task, drop it immediately.
+        current_exited_tasks()
+            .lock()
+            .retain(|task| Arc::strong_count(task) != 1);
         WAIT_FOR_EXIT.wait();
     }
 }
@@ -255,7 +292,9 @@ pub(crate) fn init() {
     let main_task = TaskInner::new_init("main".into());
     main_task.set_state(TaskState::Running);
 
-    RUN_QUEUE.init_by(AxRunQueue::new());
+    RUN_QUEUE.with_current(|rq| rq.init_by(RunQueue::new(true)));
+    // RUN_QUEUE.init_by(RunQueue::new(true));
+
     unsafe { CurrentTask::init_current(main_task) }
 }
 
@@ -263,5 +302,7 @@ pub(crate) fn init_secondary() {
     let idle_task = TaskInner::new_init("idle".into());
     idle_task.set_state(TaskState::Running);
     IDLE_TASK.with_current(|i| i.init_by(idle_task.clone()));
+    RUN_QUEUE.with_current(|rq| rq.init_by(RunQueue::new(true)));
+
     unsafe { CurrentTask::init_current(idle_task) }
 }
