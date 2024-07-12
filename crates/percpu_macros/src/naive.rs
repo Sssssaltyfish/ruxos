@@ -14,13 +14,13 @@ use syn::{Ident, Type};
 
 pub fn gen_offset(symbol: &Ident) -> proc_macro2::TokenStream {
     quote! {
-        unsafe { ::core::ptr::addr_of!(#symbol) as usize }
+        unsafe { ::core::ptr::addr_of_mut!(#symbol) as usize }
     }
 }
 
 pub fn gen_current_ptr(symbol: &Ident, _ty: &Type) -> proc_macro2::TokenStream {
     quote! {
-        unsafe { ::core::ptr::addr_of!(#symbol) }
+        unsafe { ::core::ptr::addr_of_mut!(#symbol) }
     }
 }
 
